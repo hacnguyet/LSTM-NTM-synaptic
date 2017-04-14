@@ -37,6 +37,7 @@ hiddenLayer.project(headLayer,synaptic.Layer.connectionType.ALL_TO_ALL);
 //headLayer.project(outputLayer,synaptic.Layer.connectionType.ALL_TO_ALL);
 
 function train_ntm(){
+
     var learningRate = .1;
     var start = Date.now();
     /*------ TRAINING ----------*/
@@ -54,7 +55,7 @@ function train_ntm(){
         }
 
         for(var i= 0; i < inputSequenceArray.length; i++){
-            if((numOfRuns%100) == 0 && i==0){
+            if((numOfRuns%100) == 0 && numOfRuns != 0 && i==0){
                 timeStep(inputSequenceArray[i],true); 
                 console.log(numOfRuns,Date.now()-start);
             }else{
@@ -69,7 +70,7 @@ function train_ntm(){
 }
 
 function test_ntm(){
-    /*------ RUNNING ----------*/
+    
     var inputSequenceArray = [];
     var outputSequenceArray = [];
     for(var i = 0; i < sequenceLength; i++){
@@ -89,6 +90,7 @@ function test_ntm(){
 function timeStep(input,flag){
     
     var testSequence = padInput(input);
+    console.log(readVector);
     inputLayer.activate(readVector.concat(testSequence));
     if(flag){
         console.log('Input');
@@ -105,6 +107,7 @@ function timeStep(input,flag){
         var gamma = softplus(readHeadInputs[mem_width + mem_size + 2]);
 
     var tmp = focus_by_content(memoryTape,key,beta);
+    console.log('mem',memoryTape,'key',key,'beta',beta,tmp);
     var tmp2 = focus_by_location(tmp,readtapeWeights,gt);
     console.log(tmp,readtapeWeights,gt,tmp2);
     var shift_convolveRes = shift_convolve(tmp2,shift);
