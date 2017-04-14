@@ -1,0 +1,20 @@
+.container{
+	width: 100000px;
+}
+table{
+	width: auto;
+	margin-bottom: 5px;
+}
+table#sample{
+	margin-top: 10px; 
+	margin-bottom: 20px;
+}
+th{
+	height: 15px;
+	max-width: 15px;
+	font-size: 15px;
+}
+td{
+	height: 15px;
+	width: 15px;
+}

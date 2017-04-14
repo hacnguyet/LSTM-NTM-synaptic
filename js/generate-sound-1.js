@@ -66,24 +66,8 @@ if (navigator.mediaDevices) {
 
         draw();
 
-        // Create a biquadfilter
-        var biquadFilter = audioCtx.createBiquadFilter();
-        //biquadFilter.frequency.value = 1000;
-        //biquadFilter.gain.value = range.value;
-
-        // connect the AudioBufferSourceNode to the gainNode
-        // and the gainNode to the destination, so we can play the
-        // music and adjust the volume using the mouse cursor
-        source.connect(biquadFilter);
-        console.log(biquadFilter.frequency.value, biquadFilter.gain.value);
-        biquadFilter.connect(audioCtx.destination);
-
-        // Get new mouse pointer coordinates when mouse is moved
-        // then set new gain value
-
-        range.oninput = function() {
-            //biquadFilter.gain.value = range.value;
-        }
+        // connect the AudioBufferSourceNode to the destination, so we can play 
+        source.connect(audioCtx.destination);
     })
     .catch(function(err) {
         console.log('The following gUM error occured: ' + err);

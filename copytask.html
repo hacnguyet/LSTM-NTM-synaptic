@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <link rel="stylesheet" type="text/css" href="css/matrix-sequence.css">
+        <script src="js/jquery-3.2.0.min.js"></script>
+        <script src="js/numeric-1.2.6.js"></script>
+        <script src="js/synaptic.js"></script>
+        <script src="js/matrix-sequence.js"></script>
+        <script src="js/copytask.js"></script>
+        <script src="js/ntm.js"></script>
+    </head>
+    <body> 
+        <div class="container">
+            <label for="train-length">Train length</label>
+            <input type="number" id="train-length">
+            <label for="iterations">Iterations</label>
+            <input type="number" id="iterations">
+            <label for="test-length">Test length</label>
+            <input type="number" id="test-length">
+            <br>
+            <br>
+            <button onclick="train();">Train</button>
+            <button onclick="test();">Test</button>
+            <button onclick="clear_table();">Clear</button>
+            <button onclick="train_ntm();">train_ntm</button>
+            <button onclick="test_ntm();">test_ntm</button>
+            <table id="sample">
+                <tr>
+                    <td style="background-color: hsl(0,100%,55%)"></td>
+                    <td style="background-color: hsl(25,100%,55%)"></td>
+                    <td style="background-color: hsl(50,100%,55%)"></td>
+                    <td style="background-color: hsl(75,100%,55%)"></td>
+                    <td style="background-color: hsl(120,100%,55%)"></td>
+                    <td style="background-color: hsl(150,100%,55%)"></td>
+                    <td style="background-color: hsl(175,100%,55%)"></td>
+                    <td style="background-color: hsl(200,100%,55%)"></td>
+                    <td style="background-color: hsl(240,100%,55%)"></td>
+                </tr>
+                <tr>
+                    <th>1.0</th>
+                    <th></th>
+                    <th></th>
+                    <th></th>
+                    <th>0.5</th>
+                    <th></th>
+                    <th></th>
+                    <th></th>
+                    <th>0.0</th>
+                </tr>
+            </table>
+            <table id="input"></table>        
+            <table id="output"></table>  
+            <table id="prediction"></table>  
+        </div>
+    </body>
+</html>
