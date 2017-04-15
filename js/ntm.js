@@ -1,7 +1,7 @@
 var vectorLength = 2;
 var sequenceLength = 2;
 var mem_width = 5;
-var mem_size = 10;
+var mem_size = 5;
 var memoryTape = [];
 
 for(var i = 0 ; i < mem_size; i++){
@@ -12,7 +12,9 @@ for(var i = 0 ; i < mem_size; i++){
     memoryTape.push(mem);
 }
 console.log("Intial memoryTape");
-console.log(memoryTape);
+for(var i in memoryTape){
+    console.log(memoryTape[i]);
+}
 
 var readtapeWeights = initializeTapeWeights();
 console.log("Intial readtapeWeights");
@@ -38,14 +40,21 @@ hiddenLayer.project(headLayer,synaptic.Layer.connectionType.ALL_TO_ALL);
 
 function train_ntm(){
 
-    var learningRate = .1;
+    var learningRate = .01;
     var start = Date.now();
     /*------ TRAINING ----------*/
-    for(var numOfRuns = 0; numOfRuns<1000; numOfRuns++){
+    for(var numOfRuns = 0; numOfRuns<10; numOfRuns++){
         var inputSequenceArray = [];
         var outputSequenceArray = [];
         for(var i = 0; i < sequenceLength; i++){
-            inputSequenceArray.push([Math.round(Math.random()),Math.round(Math.random())]);
+            var vectorTmp = [];
+            while(vectorTmp.indexOf(1) == -1){
+                vectorTmp = [];
+                for(var j = 0; j < vectorLength; j++){
+                    vectorTmp.push(Math.round(Math.random()));
+                }
+            }    
+            inputSequenceArray.push(vectorTmp);
             outputSequenceArray.push([0,0]);
         }
 
@@ -55,11 +64,13 @@ function train_ntm(){
         }
 
         for(var i= 0; i < inputSequenceArray.length; i++){
-            if((numOfRuns%100) == 0 && numOfRuns != 0 && i==0){
+            if((numOfRuns + 1) % 1000 == 0 && i==0){
                 timeStep(inputSequenceArray[i],true); 
-                console.log(numOfRuns,Date.now()-start);
+                console.log(numOfRuns+1,Date.now()-start);
             }else{
-                timeStep(inputSequenceArray[i],false);
+                //timeStep(inputSequenceArray[i],false);
+                timeStep(inputSequenceArray[i],true); 
+                console.log(numOfRuns+1,Date.now()-start);
             }          
             outputLayer.propagate(learningRate,outputSequenceArray[i]);
             headLayer.propagate(learningRate);
@@ -74,7 +85,14 @@ function test_ntm(){
     var inputSequenceArray = [];
     var outputSequenceArray = [];
     for(var i = 0; i < sequenceLength; i++){
-        inputSequenceArray.push([Math.round(Math.random()),Math.round(Math.random())]);
+        var vectorTmp = [];
+        while(vectorTmp.indexOf(1) == -1){
+            vectorTmp = [];
+            for(var j = 0; j < vectorLength; j++){
+                vectorTmp.push(Math.round(Math.random()));
+            }
+        }    
+        inputSequenceArray.push(vectorTmp);
     }
 
     for(var i = 0; i < sequenceLength; i++){
@@ -90,7 +108,6 @@ function test_ntm(){
 function timeStep(input,flag){
     
     var testSequence = padInput(input);
-    console.log(readVector);
     inputLayer.activate(readVector.concat(testSequence));
     if(flag){
         console.log('Input');
@@ -101,19 +118,16 @@ function timeStep(input,flag){
     /*--------------- READ WEIGHTINGS ------------------*/
     var readHeadInputs = headLayer.activate().slice(0,mem_width + mem_size + 3);
         var key = readHeadInputs.slice(0,mem_width);
-        var beta = Math.exp(readHeadInputs[mem_width]);
+        var beta = Math.exp(readHeadInputs[mem_width])+10;
         var gt = readHeadInputs[mem_width + 1];
         var shift = softmax(readHeadInputs.slice(mem_width + 2,mem_width + mem_size + 2));
         var gamma = softplus(readHeadInputs[mem_width + mem_size + 2]);
 
     var tmp = focus_by_content(memoryTape,key,beta);
-    console.log('mem',memoryTape,'key',key,'beta',beta,tmp);
     var tmp2 = focus_by_location(tmp,readtapeWeights,gt);
-    console.log(tmp,readtapeWeights,gt,tmp2);
     var shift_convolveRes = shift_convolve(tmp2,shift);
     readtapeWeights = sharpen(shift_convolveRes,gamma);
     readVector =  build_read(memoryTape,readtapeWeights);
-    //console.log(tmp,tmp2,shift_convolveRes,readtapeWeights,readVector);
         
     /*--------------- WRITE WEIGHTINGS ------------------*/
 
@@ -121,7 +135,7 @@ function timeStep(input,flag){
         var erase  = writeHeadInputs.slice(0,mem_width);
         var add = writeHeadInputs.slice(mem_width,mem_width * 2);
         var key = writeHeadInputs.slice(mem_width * 2,mem_width * 3);
-        var beta = Math.exp(writeHeadInputs[mem_width * 3]);
+        var beta = Math.exp(writeHeadInputs[mem_width * 3])+10;
         var gt = writeHeadInputs[mem_width * 3 + 1];
         var shift = softmax(writeHeadInputs.slice(mem_width * 3 + 2,mem_width * 3 + mem_size + 2));
         var gamma = softplus(writeHeadInputs[mem_width * 3 + mem_size + 2]);
@@ -129,15 +143,29 @@ function timeStep(input,flag){
     var tmp = focus_by_content(memoryTape,key,beta);
     var tmp2 = focus_by_location(tmp,writetapeWeight,gt);
     var shift_convolveRes = shift_convolve(tmp2,shift);
+    console.log('beta');
+    console.log(beta);
+    console.log('key');
+    console.log(key);
+    console.log('tmp');
+    console.log(tmp);
+    console.log('tmp2');
+    console.log(tmp2);
+    console.log('shift');
+    console.log(shift);
+    console.log('shift_convolveRes');
+    console.log(shift_convolveRes);
     writetapeWeight = sharpen(shift_convolveRes,gamma);
     memoryTape = build_write(memoryTape,writetapeWeight,erase,add);
        
     var res = outputLayer.activate();
     if(flag){
+        console.log('memoryTape');
+        for(var i in memoryTape){
+            console.log(memoryTape[i]);
+        }
         console.log('readtapeWeights');
         console.log(readtapeWeights);
-        console.log('readVector');
-        console.log(readVector);
         console.log('writetapeWeight');
         console.log(writetapeWeight);
         console.log('Output');
@@ -191,12 +219,12 @@ function build_write(tape_curr,weight_curr,erase,add){
         vector_1s.push(1);
     }
 
-    var erase = [];
-    var add = [];
+    var tapeErase = [];
+    var tapeAdd = [];
     for(var i in tape_curr){
-        erase = numeric.mul(tape_curr[i],numeric.sub(vector_1s,numeric.mul(weight_curr[i],erase)));
-        add = numeric.add(erase,numeric.mul(weight_curr[i],add));
-        tape_curr[i] = add;
+        tapeErase = numeric.mul(tape_curr[i],numeric.sub(vector_1s,numeric.mul(weight_curr[i],erase)));
+        tapeAdd = numeric.add(erase,numeric.mul(weight_curr[i],add));
+        tape_curr[i] = tapeAdd;
     }
 
     return tape_curr;
