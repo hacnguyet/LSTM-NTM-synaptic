@@ -3,7 +3,7 @@ var sequenceLength = 2;
 var shiftSize = 3;
 var mem_width = 5;
 var mem_size = 10;
-var learningRate = .001;
+var learningRate = .1;
 var iterations = 10000;
 var log = 2000;
 
@@ -22,9 +22,9 @@ var outputLayer = new synaptic.Layer(vectorLength);
 //headLayer = setSquash(headLayer,synaptic.Neuron.squash.TANH);
 
 inputLayer.project(headLayer,synaptic.Layer.connectionType.ALL_TO_ALL);
+headLayer.project(hiddenLayer,synaptic.Layer.connectionType.ALL_TO_ALL);
 hiddenLayer.project(outputLayer,synaptic.Layer.connectionType.ALL_TO_ALL);
-hiddenLayer.project(headLayer,synaptic.Layer.connectionType.ALL_TO_ALL);
-headLayer.project(outputLayer,synaptic.Layer.connectionType.ALL_TO_ALL);  
+//headLayer.project(outputLayer,synaptic.Layer.connectionType.ALL_TO_ALL);  
 
 function train_ntm(){
 
@@ -33,12 +33,12 @@ function train_ntm(){
     console.log('Train start');
 
     for(var numOfRuns = 0; numOfRuns < iterations; numOfRuns++){
-        //for(var j = 3; j < 4; j++){
+        for(var j = 1; j <= 2; j++){
             //reset memoryMatrix, readWeight, writeWeight back to init 
             useModel();
 
             //init train sequence
-            var sequence = initSequence(2);
+            var sequence = initSequence(j);
             var inputSequenceArray = sequence[0];
             var outputSequenceArray = sequence[1];
 
@@ -46,18 +46,16 @@ function train_ntm(){
             for(var i in inputSequenceArray){
                 timeStep(inputSequenceArray[i],false);      
                 outputLayer.propagate(learningRate,outputSequenceArray[i]);
-                //hiddenLayer.propagate(learningRate);
+                hiddenLayer.propagate(learningRate);
                 headLayer.propagate(learningRate);
             }  
-       //}
+        }
         if((numOfRuns + 1) % log == 0){
             console.log('==============',numOfRuns+1,Date.now()-start,'==============');
-            test_ntm(2);
+            test_ntm(1);
         }     
     }
     console.log('Train complete');
-    //clear_table();
-    //test_ntm(2);
 }
 
 function test_ntm(n){
@@ -65,7 +63,7 @@ function test_ntm(n){
     useModel();
 
     //init test sequence
-    var sequence = initSequence(4);
+    var sequence = initSequence(2);
     if(n){
         var sequence = initSequence(n);
     }
@@ -103,13 +101,13 @@ function timeStep(input,flag){
         var key = readHeadInputs.slice(0,mem_width);
         var beta = Math.exp(readHeadInputs[mem_width]);
         var gt = readHeadInputs[mem_width + 1];
-        //var shift = softmax(readHeadInputs.slice(mem_width + 2,mem_width + shiftSize + 2));
-        var shift = sharpen(softmax(readHeadInputs.slice(mem_width + 2,mem_width + shiftSize + 2)),20);
+        var shift = softmax(readHeadInputs.slice(mem_width + 2,mem_width + shiftSize + 2));
+        //var shift = sharpen(softmax(readHeadInputs.slice(mem_width + 2,mem_width + shiftSize + 2)),20);
         if(flag){
             drawSequence('readShift',[shift]);
         }
         shift = padShift(shift);
-        var gamma = softplus(readHeadInputs[mem_width + shiftSize + 2]) + 20;
+        var gamma = softplus(readHeadInputs[mem_width + shiftSize + 2]) + 1;
 
     var tmp = focus_by_content(memoryTape,key,beta);
     var tmp2 = focus_by_location(tmp,readtapeWeight,gt);
@@ -133,13 +131,13 @@ function timeStep(input,flag){
         var key = writeHeadInputs.slice(mem_width * 2,mem_width * 3);
         var beta = Math.exp(writeHeadInputs[mem_width * 3]);
         var gt = sigmoidSingle(writeHeadInputs[mem_width * 3 + 1]);
-        //var shift = softmax(writeHeadInputs.slice(mem_width * 3 + 2,mem_width * 3 + shiftSize + 2));
-        var shift = sharpen(softmax(writeHeadInputs.slice(mem_width * 3 + 2,mem_width * 3 + shiftSize + 2)),20);
+        var shift = softmax(writeHeadInputs.slice(mem_width * 3 + 2,mem_width * 3 + shiftSize + 2));
+        //var shift = sharpen(softmax(writeHeadInputs.slice(mem_width * 3 + 2,mem_width * 3 + shiftSize + 2)),20);
         if(flag){
             drawSequence('writeShift',[shift]);
         }
         shift = padShift(shift);
-        var gamma = softplus(writeHeadInputs[mem_width * 3 + shiftSize + 2]) + 20;
+        var gamma = softplus(writeHeadInputs[mem_width * 3 + shiftSize + 2]) + 1;
             
     var tmp = focus_by_content(memoryTape,key,beta);
     var tmp2 = focus_by_location(tmp,writetapeWeight,gt);
@@ -156,7 +154,7 @@ function timeStep(input,flag){
             drawSequence('writetapeWeight',[writetapeWeight]);
     }
        
-    //var hiddenLayerActivate = hiddenLayer.activate();   
+    var hiddenLayerActivate = hiddenLayer.activate();   
     var res = outputLayer.activate();
     if(flag){
         drawSequence('prediction',[res]);
@@ -175,9 +173,11 @@ function initSequence(n){
 
     switch(n){
         case 1:
-            var inputSequenceArray = [[0,1],[0,1],[1,0],[0,0],[0,0],[0,0]];
-            var outputSequenceArray = [[0,0],[0,0],[0,0],[0,1],[0,1],[1,0]];
-            break;
+            var inputSequenceArray = [[0,0,0,1],[1,1,0,0],[1,0,0,0],[1,0,0,0],[0,0,1,0],
+                                      [0,0,0,0],[0,0,0,0],[0,0,0,0]];
+            var outputSequenceArray = [[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0],
+                                      [1,1,0,0],[1,0,0,0],[1,0,0,0]];
+            break; 
         case 2:
             var inputSequenceArray = [[0,0,0,1],[0,1,0,0],[1,0,0,0],[1,1,0,0],[0,0,1,0],
                                       [0,0,0,0],[0,0,0,0],[0,0,0,0]];
