@@ -1,199 +1,335 @@
-var vectorLength = 2;
+var vectorLength = 4;
 var sequenceLength = 2;
+var shiftSize = 3;
 var mem_width = 5;
-var mem_size = 5;
+var mem_size = 10;
+var learningRate = .001;
+var iterations = 10000;
+var log = 2000;
+
 var memoryTape = [];
+var memoryTape_tmp = [];
+var readtapeWeight = [];
+var readtapeWeight_tmp = [];
+var writetapeWeight = [];
+var writetapeWeight_tmp = [];
+var readVector;
 
-for(var i = 0 ; i < mem_size; i++){
-    var mem = [];
-    for(var j = 0; j < mem_width; j++){
-        mem.push(Math.random());
-    }
-    memoryTape.push(mem);
-}
-console.log("Intial memoryTape");
-for(var i in memoryTape){
-    console.log(memoryTape[i]);
-}
-
-var readtapeWeights = initializeTapeWeights();
-console.log("Intial readtapeWeights");
-console.log(readtapeWeights);
-
-var writetapeWeight = initializeTapeWeights();
-console.log("Intial writetapeWeight");
-console.log(writetapeWeight);
-
-var readVector =  (build_read(memoryTape,readtapeWeights));
-console.log("Intial readVector");
-console.log(readVector);
-
-var inputLayer = new synaptic.Layer(vectorLength+readVector.length);
-var hiddenLayer = new synaptic.Layer(100);
-var headLayer = new synaptic.Layer(mem_width * 4 + mem_size * 2 + 6);
+var inputLayer = new synaptic.Layer(vectorLength+mem_width);
+var hiddenLayer = new synaptic.Layer(10);
+var headLayer = new synaptic.Layer(mem_width * 4 + shiftSize * 2 + 6);
 var outputLayer = new synaptic.Layer(vectorLength);
+//headLayer = setSquash(headLayer,synaptic.Neuron.squash.TANH);
 
-inputLayer.project(hiddenLayer,synaptic.Layer.connectionType.ALL_TO_ALL);
-hiddenLayer.project(outputLayer,synaptic.Layer.connectionType.ALL_TO_ALL);  
+inputLayer.project(headLayer,synaptic.Layer.connectionType.ALL_TO_ALL);
+hiddenLayer.project(outputLayer,synaptic.Layer.connectionType.ALL_TO_ALL);
 hiddenLayer.project(headLayer,synaptic.Layer.connectionType.ALL_TO_ALL);
-//headLayer.project(outputLayer,synaptic.Layer.connectionType.ALL_TO_ALL);
+headLayer.project(outputLayer,synaptic.Layer.connectionType.ALL_TO_ALL);  
 
 function train_ntm(){
 
-    var learningRate = .01;
     var start = Date.now();
     /*------ TRAINING ----------*/
-    for(var numOfRuns = 0; numOfRuns<10; numOfRuns++){
-        var inputSequenceArray = [];
-        var outputSequenceArray = [];
-        for(var i = 0; i < sequenceLength; i++){
-            var vectorTmp = [];
-            while(vectorTmp.indexOf(1) == -1){
-                vectorTmp = [];
-                for(var j = 0; j < vectorLength; j++){
-                    vectorTmp.push(Math.round(Math.random()));
-                }
-            }    
-            inputSequenceArray.push(vectorTmp);
-            outputSequenceArray.push([0,0]);
-        }
+    console.log('Train start');
 
-        for(var i = 0; i < sequenceLength; i++){
-            inputSequenceArray.push([0,0]);
-            outputSequenceArray.push(inputSequenceArray[i]);
-        }
+    for(var numOfRuns = 0; numOfRuns < iterations; numOfRuns++){
+        //for(var j = 3; j < 4; j++){
+            //reset memoryMatrix, readWeight, writeWeight back to init 
+            useModel();
 
-        for(var i= 0; i < inputSequenceArray.length; i++){
-            if((numOfRuns + 1) % 1000 == 0 && i==0){
-                timeStep(inputSequenceArray[i],true); 
-                console.log(numOfRuns+1,Date.now()-start);
-            }else{
-                //timeStep(inputSequenceArray[i],false);
-                timeStep(inputSequenceArray[i],true); 
-                console.log(numOfRuns+1,Date.now()-start);
-            }          
-            outputLayer.propagate(learningRate,outputSequenceArray[i]);
-            headLayer.propagate(learningRate);
-            hiddenLayer.propagate(learningRate);
-        }    
+            //init train sequence
+            var sequence = initSequence(2);
+            var inputSequenceArray = sequence[0];
+            var outputSequenceArray = sequence[1];
+
+            //train sequence
+            for(var i in inputSequenceArray){
+                timeStep(inputSequenceArray[i],false);      
+                outputLayer.propagate(learningRate,outputSequenceArray[i]);
+                //hiddenLayer.propagate(learningRate);
+                headLayer.propagate(learningRate);
+            }  
+       //}
+        if((numOfRuns + 1) % log == 0){
+            console.log('==============',numOfRuns+1,Date.now()-start,'==============');
+            test_ntm(2);
+        }     
     }
     console.log('Train complete');
+    //clear_table();
+    //test_ntm(2);
 }
 
-function test_ntm(){
-    
-    var inputSequenceArray = [];
-    var outputSequenceArray = [];
-    for(var i = 0; i < sequenceLength; i++){
-        var vectorTmp = [];
-        while(vectorTmp.indexOf(1) == -1){
-            vectorTmp = [];
-            for(var j = 0; j < vectorLength; j++){
-                vectorTmp.push(Math.round(Math.random()));
-            }
-        }    
-        inputSequenceArray.push(vectorTmp);
-    }
+function test_ntm(n){
+    //Init memoryMatrix, readWeight, writeWeight
+    useModel();
 
-    for(var i = 0; i < sequenceLength; i++){
-        inputSequenceArray.push([0,0]);
+    //init test sequence
+    var sequence = initSequence(4);
+    if(n){
+        var sequence = initSequence(n);
     }
+    var inputSequenceArray = sequence[0];
+    var outputSequenceArray = sequence[1];
 
+    //test
     for(var i= 0; i < inputSequenceArray.length; i++){
-        var res = timeStep(inputSequenceArray[i]);  
-        console.log(inputSequenceArray[i],res);      
+        var res = timeStep(inputSequenceArray[i],true);  
     }
+
+    //draw
+    //drawSequence('input',inputSequenceArray);
+    drawSequence('output',outputSequenceArray);
+    drawSequence('memoryTape',memoryTape);
+    var vectorOne = [];
+    for(var i = 0; i < mem_width; i++){
+        vectorOne.push(1);
+    }
+    drawSequence('memoryTape',[vectorOne]);
+
 }
 
 function timeStep(input,flag){
-    
+
     var testSequence = padInput(input);
     inputLayer.activate(readVector.concat(testSequence));
     if(flag){
-        console.log('Input');
-        console.log(readVector.concat(testSequence));
+        drawSequence('input',[readVector.concat(testSequence)]);
     }    
 
-    var hiddenLayerIActiv= hiddenLayer.activate();
+    var headLayerActivate = headLayer.activate();
     /*--------------- READ WEIGHTINGS ------------------*/
-    var readHeadInputs = headLayer.activate().slice(0,mem_width + mem_size + 3);
+    var readHeadInputs = headLayerActivate.slice(0,mem_width + mem_size + 3);
         var key = readHeadInputs.slice(0,mem_width);
-        var beta = Math.exp(readHeadInputs[mem_width])+10;
+        var beta = Math.exp(readHeadInputs[mem_width]);
         var gt = readHeadInputs[mem_width + 1];
-        var shift = softmax(readHeadInputs.slice(mem_width + 2,mem_width + mem_size + 2));
-        var gamma = softplus(readHeadInputs[mem_width + mem_size + 2]);
+        //var shift = softmax(readHeadInputs.slice(mem_width + 2,mem_width + shiftSize + 2));
+        var shift = sharpen(softmax(readHeadInputs.slice(mem_width + 2,mem_width + shiftSize + 2)),20);
+        if(flag){
+            drawSequence('readShift',[shift]);
+        }
+        shift = padShift(shift);
+        var gamma = softplus(readHeadInputs[mem_width + shiftSize + 2]) + 20;
 
     var tmp = focus_by_content(memoryTape,key,beta);
-    var tmp2 = focus_by_location(tmp,readtapeWeights,gt);
+    var tmp2 = focus_by_location(tmp,readtapeWeight,gt);
     var shift_convolveRes = shift_convolve(tmp2,shift);
-    readtapeWeights = sharpen(shift_convolveRes,gamma);
-    readVector =  build_read(memoryTape,readtapeWeights);
+    readtapeWeight = sharpen(shift_convolveRes,gamma);
+    readVector =  build_read(memoryTape,readtapeWeight);
+    if(flag){
+        drawSequence('readKey',[key]);
+        drawSequence('readTmp',[tmp]);
+        drawSequence('readTmp2',[tmp2]);
+        drawSequence('readShiftConv',[shift_convolveRes]);
+        drawSequence('readVector',[readVector]);
+        drawSequence('readtapeWeight',[readtapeWeight]);
+    }    
         
     /*--------------- WRITE WEIGHTINGS ------------------*/
 
-    var writeHeadInputs = headLayer.activate().slice(mem_width + mem_size + 3,mem_width * 4 + mem_size * 2 + 6);
+    var writeHeadInputs = headLayerActivate.slice(mem_width + shiftSize + 3,mem_width * 4 + shiftSize * 2 + 6);
         var erase  = writeHeadInputs.slice(0,mem_width);
         var add = writeHeadInputs.slice(mem_width,mem_width * 2);
         var key = writeHeadInputs.slice(mem_width * 2,mem_width * 3);
-        var beta = Math.exp(writeHeadInputs[mem_width * 3])+10;
-        var gt = writeHeadInputs[mem_width * 3 + 1];
-        var shift = softmax(writeHeadInputs.slice(mem_width * 3 + 2,mem_width * 3 + mem_size + 2));
-        var gamma = softplus(writeHeadInputs[mem_width * 3 + mem_size + 2]);
+        var beta = Math.exp(writeHeadInputs[mem_width * 3]);
+        var gt = sigmoidSingle(writeHeadInputs[mem_width * 3 + 1]);
+        //var shift = softmax(writeHeadInputs.slice(mem_width * 3 + 2,mem_width * 3 + shiftSize + 2));
+        var shift = sharpen(softmax(writeHeadInputs.slice(mem_width * 3 + 2,mem_width * 3 + shiftSize + 2)),20);
+        if(flag){
+            drawSequence('writeShift',[shift]);
+        }
+        shift = padShift(shift);
+        var gamma = softplus(writeHeadInputs[mem_width * 3 + shiftSize + 2]) + 20;
             
     var tmp = focus_by_content(memoryTape,key,beta);
     var tmp2 = focus_by_location(tmp,writetapeWeight,gt);
     var shift_convolveRes = shift_convolve(tmp2,shift);
-    console.log('beta');
-    console.log(beta);
-    console.log('key');
-    console.log(key);
-    console.log('tmp');
-    console.log(tmp);
-    console.log('tmp2');
-    console.log(tmp2);
-    console.log('shift');
-    console.log(shift);
-    console.log('shift_convolveRes');
-    console.log(shift_convolveRes);
     writetapeWeight = sharpen(shift_convolveRes,gamma);
     memoryTape = build_write(memoryTape,writetapeWeight,erase,add);
+    if(flag){
+            drawSequence('erase',[erase]);
+            drawSequence('add',[add]);
+            drawSequence('writeKey',[key]);
+            drawSequence('writeTmp',[tmp]);
+            drawSequence('writeTmp2',[tmp2]);
+            drawSequence('writeShiftConv',[shift_convolveRes]);
+            drawSequence('writetapeWeight',[writetapeWeight]);
+    }
        
+    //var hiddenLayerActivate = hiddenLayer.activate();   
     var res = outputLayer.activate();
     if(flag){
-        console.log('memoryTape');
-        for(var i in memoryTape){
-            console.log(memoryTape[i]);
-        }
-        console.log('readtapeWeights');
-        console.log(readtapeWeights);
-        console.log('writetapeWeight');
-        console.log(writetapeWeight);
-        console.log('Output');
-        console.log(res);
+        drawSequence('prediction',[res]);
     }    
     return res;
 }
 
-function initializeTapeWeights(){
+function initSequence(n){
+
+    var inputSequenceArray = [];
+    var outputSequenceArray = [];
+    var vectorZero = [];
+    for(var j = 0; j < vectorLength; j++){
+        vectorZero.push(0);
+    }
+
+    switch(n){
+        case 1:
+            var inputSequenceArray = [[0,1],[0,1],[1,0],[0,0],[0,0],[0,0]];
+            var outputSequenceArray = [[0,0],[0,0],[0,0],[0,1],[0,1],[1,0]];
+            break;
+        case 2:
+            var inputSequenceArray = [[0,0,0,1],[0,1,0,0],[1,0,0,0],[1,1,0,0],[0,0,1,0],
+                                      [0,0,0,0],[0,0,0,0],[0,0,0,0]];
+            var outputSequenceArray = [[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0],
+                                      [0,1,0,0],[1,0,0,0],[1,1,0,0]];
+            break; 
+        case 3:
+            var inputSequenceArray = [[0,0,0,0,0,0,0,0,0,1],
+                                      [1,0,1,0,1,0,1,0,0,0],[0,0,0,1,0,0,0,1,0,0],[1,1,0,0,0,1,0,1,0,0],[0,0,0,1,1,1,0,1,0,0],
+                                      [0,0,0,0,0,0,0,0,1,0],
+                                      [0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0]];
+
+            var outputSequenceArray = [[0,0,0,0,0,0,0,0,0,0],
+                                       [0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],
+                                       [0,0,0,0,0,0,0,0,0,0],
+                                       [1,0,1,0,1,0,1,0,0,0],[0,0,0,1,0,0,0,1,0,0],[1,1,0,0,0,1,0,1,0,0],[0,0,0,1,1,1,0,1,0,0],];
+            break;
+        case 4:
+            var inputSequenceArray = [[0,0,0,1],[1,1,0,0],[1,0,0,0],[1,0,0,0],[0,0,1,0],
+                                      [0,0,0,0],[0,0,0,0],[0,0,0,0]];
+            var outputSequenceArray = [[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0],
+                                      [1,1,0,0],[1,0,0,0],[1,0,0,0]];
+            break; 
+        case 5:
+            var inputSequenceArray = [[1,0],[1,0],[0,0],[0,0]];
+            var outputSequenceArray = [[0,0],[0,0],[1,0],[1,0]];
+            break; 
+        case 6:
+            var inputSequenceArray = [[1,0],[1,1],[0,0],[0,0]];
+            var outputSequenceArray = [[0,0],[0,0],[1,0],[1,1]];
+            break;   
+        case 7:
+            var inputSequenceArray = [[1,1],[0,1],[0,0],[0,0]];
+            var outputSequenceArray = [[0,0],[0,0],[1,1],[0,1]];
+            break;
+        case 8:
+            var inputSequenceArray = [[1,1],[1,0],[0,0],[0,0]];
+            var outputSequenceArray = [[0,0],[0,0],[1,1],[1,0]];
+            break; 
+        case 9:
+            var inputSequenceArray = [[1,1],[1,1],[0,0],[0,0]];
+            var outputSequenceArray = [[0,0],[0,0],[1,1],[1,1]];
+            break; 
+        default:
+            for(var i = 0; i < sequenceLength; i++){
+                var vectorRandom = [];
+                while(vectorRandom.indexOf(1) == -1){
+                    vectorRandom = [];
+                    for(var j = 0; j < vectorLength; j++){
+                        vectorRandom.push(Math.round(Math.random()));
+                    }    
+                }   
+                inputSequenceArray.push(vectorRandom);
+                outputSequenceArray.push(vectorZero);
+            }           
+            for(var i = 1; i < sequenceLength + 1; i++){
+                inputSequenceArray.push(vectorZero);
+                outputSequenceArray.push(inputSequenceArray[i]);
+            }          
+    }
+
+    // var inputSequenceArray = [[0,1,0,1],[1,1,0,0],[1,0,1,0],[1,1,1,0],[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]];
+    // var outputSequenceArray = [[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,1,0,1],[1,1,0,0],[1,0,1,0],[1,1,1,0]];
+
+
+    // var vectorStart = [];
+    // for(var j = 0; j < vectorLength; j++){
+    //     vectorStart.push(0);
+    // }
+    // vectorStart[vectorLength - 2] = 1;
+    // inputSequenceArray.push(vectorStart);
+    // outputSequenceArray.push(vectorZero);
+
+    // for(var i = 0; i < sequenceLength; i++){
+    //     var vectorRandom = [];
+    //     while(vectorRandom.indexOf(1) == -1){
+    //         vectorRandom = [];
+    //         for(var j = 0; j < vectorLength - 2; j++){
+    //             vectorRandom.push(Math.round(Math.random()));
+    //         }    
+    //     }  
+    //     vectorRandom.push(0);
+    //     vectorRandom.push(0);  
+    //     inputSequenceArray.push(vectorRandom);
+    //     outputSequenceArray.push(vectorZero);
+    // }
+
+    // var vectorEnd = [];
+    // for(var j = 0; j < vectorLength; j++){
+    //     vectorEnd.push(0);
+    // }
+    // vectorEnd[vectorLength - 1] = 1;
+    // inputSequenceArray.push(vectorEnd);
+    // outputSequenceArray.push(vectorZero);
+
+    // for(var i = 1; i < sequenceLength + 1; i++){
+    //     inputSequenceArray.push(vectorZero);
+    //     outputSequenceArray.push(inputSequenceArray[i]);
+    // }
+
+    return [inputSequenceArray,outputSequenceArray];
+}
+
+function initModel(){
+    memoryTape_tmp = [];
+    for(var i = 0 ; i < mem_size; i++){
+        var mem = [];
+        for(var j = 0; j < mem_width; j++){
+            mem.push(Math.random());
+        }
+        memoryTape_tmp.push(mem);
+    }
+
+    readtapeWeight_tmp = initializeTapeWeights(true);
+    writetapeWeight_tmp = initializeTapeWeights(true);
+    console.log('Initialized Model');
+
+}
+
+function useModel(){
+
+    memoryTape = [];
+    for(var i in memoryTape_tmp){
+        memoryTape.push(memoryTape_tmp[i]);
+    }
+
+    writetapeWeight = [];
+    for(var i in writetapeWeight_tmp){
+        writetapeWeight.push(writetapeWeight_tmp[i]);
+    }
+
+    readtapeWeight = [];
+    for(var i in readtapeWeight_tmp){
+        readtapeWeight.push(readtapeWeight_tmp[i]);
+    }
+
+    readVector = build_read(memoryTape_tmp,readtapeWeight_tmp);
+    
+}
+
+function initializeTapeWeights(flag){
 
     var weight_init = [];    
     for (var i = 0; i < mem_size; i++){
-        weight_init.push(Math.random());
+        if(flag){       
+            weight_init.push(Math.random());
+        }else{
+            weight_init.push(0.00001);
+        }    
     }
-    
+    console.log(softmax(weight_init));
     return softmax(weight_init);
-}
-
-function tanh(x) {
-
-    if(x === Infinity) {
-    return 1;
-    } else if(x === -Infinity) {
-    return -1;
-    } else {
-    var y = Math.exp(2 * x);
-    return (y - 1) / (y + 1);
-    }
 }
 
 function build_read(tape_curr,weight_curr,flag){
@@ -223,26 +359,37 @@ function build_write(tape_curr,weight_curr,erase,add){
     var tapeAdd = [];
     for(var i in tape_curr){
         tapeErase = numeric.mul(tape_curr[i],numeric.sub(vector_1s,numeric.mul(weight_curr[i],erase)));
-        tapeAdd = numeric.add(erase,numeric.mul(weight_curr[i],add));
+        tapeAdd = numeric.add(tapeErase,numeric.mul(weight_curr[i],add));
         tape_curr[i] = tapeAdd;
     }
 
     return tape_curr;
 }
 
+function padShift(shift){
+
+    if(shift.length <= 2){
+        return shift;
+    }
+
+    var iterLength = mem_size - shift.length;
+    var tmp = shift.slice(1,shift.length);
+    for(var i = 0; i < iterLength; i++ ){
+            tmp.push(0);
+    }
+    tmp.push(shift[0]);
+
+    return tmp;
+}
+
 function padInput(input){
 
-    var iterLength = vectorLength -input.length;
-    for(var i =0; i < iterLength; i++ ){
+    var iterLength = vectorLength - input.length;
+    for(var i = 0; i < iterLength; i++){
             input.push(0);
     }
 
     return input;
-}
-
-function focus_by_location(tmp,prev,gt){
-    
-    return numeric.add(numeric.mul(gt,tmp),numeric.mul((1-gt),prev));
 }
 
 function focus_by_content(tape_curr,key,beta){
@@ -256,18 +403,9 @@ function focus_by_content(tape_curr,key,beta){
 
 }
 
-function cosine_similarity(a,b){
-    var array_ab = numeric.mul(a,b);
-    var sum_ab = 0;
-    for(var i in array_ab)
-        sum_ab += array_ab[i];
-    var sum_a = 0;
-    for(var i in a)
-        sum_a += Math.pow(a[i],2);
-    var sum_b = 0;
-    for(var i in b)
-        sum_b += Math.pow(b[i],2);
-    return sum_ab/(Math.sqrt(sum_a) * Math.sqrt(sum_b));
+function focus_by_location(tmp,prev,gt){
+    
+    return numeric.add(numeric.mul(gt,tmp),numeric.mul((1-gt),prev));
 }
 
 function shift_convolve(tape_curr,shift){
@@ -302,6 +440,20 @@ function sharpen(tmpweight,gamma){
     return weight_sharp;
 }
 
+function cosine_similarity(a,b){
+    var array_ab = numeric.mul(a,b);
+    var sum_ab = 0;
+    for(var i in array_ab)
+        sum_ab += array_ab[i];
+    var sum_a = 0;
+    for(var i in a)
+        sum_a += Math.pow(a[i],2);
+    var sum_b = 0;
+    for(var i in b)
+        sum_b += Math.pow(b[i],2);
+    return sum_ab/(Math.sqrt(sum_a) * Math.sqrt(sum_b) + 1e-5);
+}
+
 function sigmoidSingle(t) {
 
     return 1/(1+Math.pow(Math.E, -t));
@@ -323,7 +475,7 @@ function softmax(array){
 
 function softplus(x){
 
-    return Math.log(1 + Math.exp(x)) + 1;
+    return Math.log(1 + Math.exp(x));
 }
 
 function sigmoid(array){
@@ -334,4 +486,43 @@ function sigmoid(array){
     }
 
     return tmpSig;
+}
+
+function rectifier(array){
+
+    for(var i in array){
+        array[i] = rectifierSingle(array[i]);
+    }
+
+    return array;
+}
+
+function rectifierSingle(i){
+
+    if(i < 0)
+        i = 0;
+
+    return i;
+}
+
+
+function tanh(x) {
+
+    if(x === Infinity) {
+    return 1;
+    } else if(x === -Infinity) {
+    return -1;
+    } else {
+    var y = Math.exp(2 * x);
+    return (y - 1) / (y + 1);
+    }
+}
+
+function setSquash(layer, squash){
+
+    for(var i in layer.list){
+        layer.list[i].squash = squash;
+    }
+
+    return layer;
 }

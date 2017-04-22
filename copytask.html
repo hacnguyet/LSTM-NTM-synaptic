@@ -23,8 +23,9 @@
             <button onclick="train();">Train</button>
             <button onclick="test();">Test</button>
             <button onclick="clear_table();">Clear</button>
-            <button onclick="train_ntm();">train_ntm</button>
-            <button onclick="test_ntm();">test_ntm</button>
+            <button onclick="initModel();">Init model</button>
+            <button onclick="train_ntm();">Train ntm</button>
+            <button onclick="test_ntm();">Test ntm</button>
             <table id="sample">
                 <tr>
                     <td style="background-color: hsl(0,100%,55%)"></td>
@@ -49,9 +50,32 @@
                     <th>0.0</th>
                 </tr>
             </table>
-            <table id="input"></table>        
+            <label>ReadVector</label>
+            <table id="readVector"></table> 
+            <label>Input</label>
+            <table id="input"></table>   
+            <label>Output</label>     
             <table id="output"></table>  
-            <table id="prediction"></table>  
+            <label>Prediction</label>
+            <table id="prediction"></table> 
+            <label>WriteKey</label>
+            <table id="writeKey"></table>
+            <label>WriteShift</label>
+            <table id="writeShift"></table> 
+            <label>WritetapeWeight</label> 
+            <table id="writetapeWeight"></table> 
+            <label>ReadKey</label>
+            <table id="readKey"></table>
+            <label>ReadShift</label>
+            <table id="readShift"></table>
+            <label>ReadtapeWeight</label>
+            <table id="readtapeWeight"></table> 
+            <label>Erase</label>
+            <table id="erase"></table> 
+            <label>Add</label>
+            <table id="add"></table> 
+            <label>MemoryTape</label>
+            <table id="memoryTape"></table> 
         </div>
     </body>
 </html>

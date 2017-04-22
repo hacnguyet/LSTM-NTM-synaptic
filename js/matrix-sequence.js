@@ -16,7 +16,5 @@ function convertColor(f){
 }
 
 function clear_table(){
-	$('#input tr').remove();
-	$('#output tr').remove();
-	$('#prediction tr').remove();
+	$('table').not('#sample').find('tr').remove();
 }
