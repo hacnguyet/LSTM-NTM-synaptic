@@ -4,8 +4,8 @@ var shiftSize = 3;
 var mem_width = 5;
 var mem_size = 10;
 var learningRate = .1;
-var iterations = 10;
-var log = 10;
+var iterations = 5000;
+var log = 5000;
 
 var memoryTape = [];
 var memoryTape_tmp = [];
@@ -20,7 +20,8 @@ var memoryGradient = [];
 
 var inputLayer = new synaptic.Layer(vectorLength);
 var readLayer = new synaptic.Layer(mem_width);
-var hiddenLayer = new synaptic.Layer(30);
+var hiddenLayer = new synaptic.Layer(20);
+//var hiddenLayer2 = new synaptic.Layer(10);
 var headLayer = new synaptic.Layer(mem_width * 4 + shiftSize * 2 + 6);
 var outputLayer = new synaptic.Layer(vectorLength);
 //headLayer = setSquash(headLayer,synaptic.Neuron.squash.TANH);
@@ -28,6 +29,7 @@ var outputLayer = new synaptic.Layer(vectorLength);
 inputLayer.project(hiddenLayer,synaptic.Layer.connectionType.ALL_TO_ALL);
 readLayer.project(hiddenLayer,synaptic.Layer.connectionType.ALL_TO_ALL);
 hiddenLayer.project(outputLayer,synaptic.Layer.connectionType.ALL_TO_ALL);
+//hiddenLayer2.project(outputLayer,synaptic.Layer.connectionType.ALL_TO_ALL);
 hiddenLayer.project(headLayer,synaptic.Layer.connectionType.ALL_TO_ALL);
 headLayer.project(readLayer,synaptic.Layer.connectionType.ALL_TO_ALL);
 
@@ -37,7 +39,6 @@ function train_ntm(){
     /*------ TRAINING ----------*/
     console.log('Train start');
 
-    var tmp = [];
     for(var numOfRuns = 0; numOfRuns < iterations; numOfRuns++){
         //reset memoryMatrix, readWeight, writeWeight back to init 
         useModel();
@@ -49,24 +50,24 @@ function train_ntm(){
 
         //train sequence
         for(var i in inputSequenceArray){
-            if(numOfRuns > 0){
-                readVector = tmp[i];
-            }
-            console.log(readVector);
-            forwardController(inputSequenceArray[i],true);      
+            forwardController(inputSequenceArray[i],false);      
             outputLayer.propagate(learningRate,outputSequenceArray[i]);
+            //hiddenLayer2.propagate(learningRate);
             hiddenLayer.propagate(learningRate);
             readLayer.propagate(learningRate);
-            // if(i > 0){ 
-            //     propagateMemory(readLayer.activate());
-            // }    
-            tmp[i] = readLayer.activate();
+            if(i > 0){ 
+               //propagateMemory(outputSequenceArray[i].concat([0]));
+               propagateMemory(readLayer.activate());
+            }    
             timeStep(false);
+            if((numOfRuns + 1) % 1 == 0){
+                //console.log(numOfRuns+1,readVector);
+            }
         }  
-        console.log(tmp);
 
         if((numOfRuns + 1) % log == 0){
             console.log('==============',numOfRuns+1,Date.now()-start,'==============');
+            test_ntm(1);
         } 
     }
     console.log('Train complete');
@@ -106,7 +107,9 @@ function forwardController(input,flag){
     }    
 
     hiddenLayerActivate = hiddenLayer.activate();
-    headLayerActivate = headLayer.activate();
+    //hiddenLayer2Activate = hiddenLayer2.activate();
+    console.log('hiddenLayerActivate',hiddenLayerActivate);
+    //console.log('hiddenLayer2Activate',hiddenLayer2Activate);
     var outputLayerActivate = outputLayer.activate();
     if(flag){
         drawSequence('prediction',[outputLayerActivate]);
@@ -118,10 +121,11 @@ function forwardController(input,flag){
 function timeStep(flag){
 
     //Save machine state
-    lastHiddenLayerActivate = [];
-    for(var i in hiddenLayerActivate){
-        lastHiddenLayerActivate.push(hiddenLayerActivate[i]);
-    }
+    lastHiddenLayerActivate = hiddenLayerActivate.slice();
+    hiddenLayer.activate(hiddenLayerActivate);
+    headLayerActivate = headLayer.activate();
+    // console.log('time_hiddenLayerActivate',hiddenLayerActivate);
+    //console.log('time_headLayerActivate',headLayerActivate);
 
     //Compute next machine state
     var nextMachineState = memoryMechanism(headLayerActivate,memoryTape,writetapeWeight,readtapeWeight,flag);
@@ -205,15 +209,15 @@ function computeMemoryGradient(){
 
     memoryGradient = [];
     for(var i in headLayerActivate){
-        headLayerActivate[i] += 0.01;
+        headLayerActivate[i] += 0.0001;
         var nextState_tmp = memoryMechanism(headLayerActivate,memoryTape,writetapeWeight,readtapeWeight,false);
         var nextReadVector_tmp = nextState_tmp[0];
         var memoryGradient_tmp = [];
         for(var j in nextReadVector_tmp){
-            memoryGradient_tmp.push((nextReadVector_tmp[j] - nextReadVector[j]) / 0.01);
+            memoryGradient_tmp.push((nextReadVector_tmp[j] - nextReadVector[j]) / 0.0001);
         }
         memoryGradient.push(memoryGradient_tmp);
-        headLayerActivate[i] -= 0.01;
+        headLayerActivate[i] -= 0.0001;
     }
     
 }
@@ -221,17 +225,25 @@ function computeMemoryGradient(){
 function propagateMemory(readVector_tmp){
     
     hiddenLayer.activate(lastHiddenLayerActivate);
-    var headLayerActivate = headLayer.activate();
+    var lastHeadLayerActivate = headLayer.activate();
+    //console.log('propagate_hiddenLayerActivate',lastHiddenLayerActivate);
+    //console.log('propagate_headLayerActivate',lastHeadLayerActivate);
+    console.log(readVector, readVector_tmp);
 
     for(var i in readVector){
-        if((readVector[i] - readVector_tmp[i]) >= 0){
+        if(readVector[i] >= readVector_tmp[i]){
             for(var j in memoryGradient){
-                headLayerActivate[j] -= learningRate * memoryGradient[j][i]
+                lastHeadLayerActivate[j] -= learningRate * memoryGradient[j][i]
+            }
+        }
+        if(readVector[i] < readVector_tmp[i]){
+            for(var j in memoryGradient){
+                lastHeadLayerActivate[j] += learningRate * memoryGradient[j][i]
             }
         }
     } 
 
-    headLayer.propagate(learningRate, headLayerActivate);
+    headLayer.propagate(learningRate, lastHeadLayerActivate);
 
 }
 
@@ -246,11 +258,14 @@ function initSequence(n){
 
     switch(n){
         case 1:
-            var inputSequenceArray = [[0,0,0,1],[1,1,0,0],[1,0,0,0],[1,0,0,0],[0,0,1,0],
-                                      [0,0,0,0],[0,0,0,0],[0,0,0,0]];
-            var outputSequenceArray = [[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0],
-                                      [1,1,0,0],[1,0,0,0],[1,0,0,0]];
+            var inputSequenceArray = [[0,0,1,0],[0,0,1,1],[0,0,0,0],[0,0,0,0]];
+            var outputSequenceArray = [[0,0,0,0],[0,0,0,0],[0,0,1,0],[0,0,1,1]];
             break;
+            // var inputSequenceArray = [[0,0,0,1],[1,1,0,0],[1,0,0,0],[1,0,0,0],[0,0,1,0],
+            //                           [0,0,0,0],[0,0,0,0],[0,0,0,0]];
+            // var outputSequenceArray = [[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0],
+            //                           [1,1,0,0],[1,0,0,0],[1,0,0,0]];
+            // break;
         case 2:
             var inputSequenceArray = [[0,0,0,1],[0,1,0,0],[1,0,0,0],[1,1,0,0],[0,0,1,0],
                                       [0,0,0,0],[0,0,0,0],[0,0,0,0]];
@@ -379,16 +394,8 @@ function useModel(){
         memoryTape.push(tmp);
     }
 
-    writetapeWeight = [];
-    for(var i in writetapeWeight_tmp){
-        writetapeWeight.push(writetapeWeight_tmp[i]);
-    }
-
-    readtapeWeight = [];
-    for(var i in readtapeWeight_tmp){
-        readtapeWeight.push(readtapeWeight_tmp[i]);
-    }
-
+    writetapeWeight = writetapeWeight_tmp.slice();
+    readtapeWeight = readtapeWeight_tmp.slice();
     readVector = build_read(memoryTape_tmp,readtapeWeight_tmp);
     
 }
