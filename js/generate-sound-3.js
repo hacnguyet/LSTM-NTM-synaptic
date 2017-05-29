@@ -1,7 +1,11 @@
 // define audio api variables
+var sampleRate = 3000;
+var sampleLength = 0.2;
 var audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-var analyser = audioCtx.createAnalyser();
-var source,audioData,audioBuffer,audioBuffer_test;
+var offlineCtx = new OfflineAudioContext(1,sampleRate*sampleLength,sampleRate);
+var source = offlineCtx.createBufferSource();
+var song = audioCtx.createBufferSource();
+var audioData, readBuffer, audioBuffer, audioBuffer_test, audioBuffer_json;
 
 //define synaptic variables
 var Neuron = synaptic.Neuron,
@@ -10,9 +14,9 @@ var Neuron = synaptic.Neuron,
     Trainer = synaptic.Trainer,
     Architect = synaptic.Architect;
 
-var LSTM = new Architect.LSTM(5,20,20,1);
+var LSTM = new Architect.LSTM(5,20,20,20,1);
 var iterations = 1000;
-var rate = 0.001;
+var rate = 0.01;
 var trial,res;
 
 // use FileReader to load an audio track, and
@@ -24,13 +28,24 @@ function openFile(event) {
   reader.onload = function() {
     audioData = reader.result;
     audioCtx.decodeAudioData(audioData, function(buffer) {
-      audioBuffer = buffer;
-      for (var channel = 0; channel < audioBuffer.numberOfChannels; channel++) {
-        var nowBuffering = audioBuffer.getChannelData(channel);
-        for (var i = 0; i < audioBuffer.length; i++) {
-          nowBuffering[i] = nowBuffering[i];
+      readBuffer = buffer;
+      source = offlineCtx.createBufferSource();
+      source.buffer = readBuffer;
+      source.connect(offlineCtx.destination);
+      source.start();
+      offlineCtx.startRendering().then(function(renderedBuffer) {
+        console.log('Rendering completed successfully');
+        audioBuffer = renderedBuffer;
+        for (var channel = 0; channel < audioBuffer.numberOfChannels; channel++) {
+          var nowBuffering = audioBuffer.getChannelData(channel);
+          for (var i = 0; i < audioBuffer.length; i++) {
+            //nowBuffering[i] = nowBuffering[i] * 2;
+          }
         }
-      }
+      }).catch(function(err) {
+          console.log('Rendering failed: ' + err);
+          // Note: The promise should reject when startRendering is called a second time on an OfflineAudioContext
+      });  
     },function(e){ console.log("Error with decoding audio data" + e.err); });
     console.log("Loading complete!");
   }
@@ -58,85 +73,126 @@ function train(){
 
 function test(){
   console.log("Creating test audioBuffer");
-  audioBuffer_test = audioCtx.createBuffer(1, 1 * audioBuffer.sampleRate, audioBuffer.sampleRate);
-  for (var channel = 0; channel < audioBuffer_test.numberOfChannels; channel++) {
-    var nowBuffering = audioBuffer_test.getChannelData(channel);
-    nowBuffering[0] = -0.27557632327079773;
-    nowBuffering[1] = -0.40871551632881165;
-    nowBuffering[2] = -0.3406055271625519;
-    nowBuffering[3] = -0.297277569770813;
-    nowBuffering[4] = -0.21418309211730957;
-    for (var i = 0; i < audioBuffer_test.length - 5; i++) {
-      res = LSTM.activate([(nowBuffering[i]+1)/2,(nowBuffering[i+1]+1)/2,(nowBuffering[i+2]+1)/2,(nowBuffering[i+3]+1)/2,(nowBuffering[i+4]+1)/2]);
-      nowBuffering[i+5] = res[0] * 2 - 1;
-    }  
-    // for (var i = 0; i < audioBuffer_test.length-1; i++) {
-    //   nowBuffering[i] *= 10;
-    // }  
-  }
-  play(audioBuffer_test);
+  audioBuffer_test = audioCtx.createBuffer(1, sampleRate * sampleLength, sampleRate);
+  var nowBuffering = audioBuffer_test.getChannelData(0);
+  var testBuffering = audioBuffer.getChannelData(0);
+  nowBuffering[0] = testBuffering[0];
+  nowBuffering[1] = testBuffering[1];
+  nowBuffering[2] = testBuffering[2];
+  nowBuffering[3] = testBuffering[3];
+  nowBuffering[4] = testBuffering[4];
+  for (var i = 0; i < audioBuffer_test.length - 5; i++) {
+    res = LSTM.activate([(nowBuffering[i]+1)/2,(nowBuffering[i+1]+1)/2,(nowBuffering[i+2]+1)/2,(nowBuffering[i+3]+1)/2,(nowBuffering[i+4]+1)/2]);
+    nowBuffering[i+5] = res[0] * 2 - 1;
+  }  
+  play(audioBuffer_test, 'oscilloscope_test');
 }
 
 //Put buffer to source then play
-function play(buffer) {
+function play_json() {
+  console.log("Creating audioBuffer from json");
+  audioBuffer_json = audioCtx.createBuffer(1, sampleRate * sampleLength, sampleRate);
+  var nowBuffering = audioBuffer_json.getChannelData(0);
+  var parsed = JSON.parse($('#textarea').val());
+  for(var x in nowBuffering){
+    nowBuffering[x] = parsed[x];
+  }
   //log audioBuffer info
-  console.log(buffer.sampleRate, buffer.length, buffer.duration, buffer.numberOfChannels);
-  console.log(buffer.getChannelData(0));
+  console.log(audioBuffer_json.sampleRate, audioBuffer_json.length, audioBuffer_json.duration, audioBuffer_json.numberOfChannels);
 
-  source = audioCtx.createBufferSource();
-  source.buffer = buffer;
-  source.connect(audioCtx.destination);
-  source.connect(analyser);
-
-  analyser.fftSize = 2048;
-  var bufferLength = analyser.frequencyBinCount;
-  var dataArray = new Uint8Array(bufferLength);
-  //analyser.getByteTimeDomainData(dataArray);
+  song = audioCtx.createBufferSource();
+  song.buffer = audioBuffer_json;
+  song.connect(audioCtx.destination);
+  var dataArray = audioBuffer_json.getChannelData(0);
+  $('#textarea').val(JSON.stringify(dataArray));
 
   // Get a canvas defined with ID "oscilloscope"
-  var canvas = document.getElementById("oscilloscope");
+  var canvas = document.getElementById('oscilloscope_test');
   var canvasCtx = canvas.getContext("2d");
 
   
   // draw an oscilloscope of the current audio source
-  function draw() {
-    drawVisual = requestAnimationFrame(draw);
+  canvasCtx.fillStyle = 'rgb(200, 200, 200)';
+  canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
 
-    analyser.getByteTimeDomainData(dataArray);
+  canvasCtx.lineWidth = 2;
+  canvasCtx.strokeStyle = 'rgb(0, 0, 0)';
 
-    canvasCtx.fillStyle = 'rgb(200, 200, 200)';
-    canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
+  canvasCtx.beginPath();
 
-    canvasCtx.lineWidth = 2;
-    canvasCtx.strokeStyle = 'rgb(0, 0, 0)';
+  var sliceWidth = canvas.width * 1.0 / dataArray.length;
+  var x = 0;
 
-    canvasCtx.beginPath();
+  for (var i = 0; i < dataArray.length; i++) {
 
-    var sliceWidth = canvas.width * 1.0 / bufferLength;
-    var x = 0;
+    var v = (dataArray[i] + 1) / 2;
+    var y = v * canvas.height;
 
-    for (var i = 0; i < bufferLength; i++) {
-
-      var v = dataArray[i] / 128.0;
-      var y = v * canvas.height / 2;
-
-      if (i === 0) {
-        canvasCtx.moveTo(x, y);
-      } else {
-        canvasCtx.lineTo(x, y);
-      }
-
-      x += sliceWidth;
+    if (i === 0) {
+      canvasCtx.moveTo(x, y);
+    } else {
+      canvasCtx.lineTo(x, y);
     }
 
-    canvasCtx.lineTo(canvas.width, canvas.height / 2);
-    canvasCtx.stroke();
-  };
+    x += sliceWidth;
+  }
 
-  draw();
-  source.start(0);
+  canvasCtx.lineTo(canvas.width, canvas.height / 2);
+  canvasCtx.stroke();
+
+  //play song
+  song.start(0);
+}
+
+//Put buffer to source then play
+function play(buffer, canvas_id) {
+  //log audioBuffer info
+  console.log(buffer.sampleRate, buffer.length, buffer.duration, buffer.numberOfChannels);
+
+  song = audioCtx.createBufferSource();
+  song.buffer = buffer;
+  song.connect(audioCtx.destination);
+  var dataArray = buffer.getChannelData(0);
+  $('#textarea').val(JSON.stringify(dataArray));
+
+  // Get a canvas defined with ID "oscilloscope"
+  var canvas = document.getElementById(canvas_id);
+  var canvasCtx = canvas.getContext("2d");
+
+  
+  // draw an oscilloscope of the current audio source
+  canvasCtx.fillStyle = 'rgb(200, 200, 200)';
+  canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
+
+  canvasCtx.lineWidth = 2;
+  canvasCtx.strokeStyle = 'rgb(0, 0, 0)';
+
+  canvasCtx.beginPath();
+
+  var sliceWidth = canvas.width * 1.0 / dataArray.length;
+  var x = 0;
+
+  for (var i = 0; i < dataArray.length; i++) {
+
+    var v = (dataArray[i] + 1) / 2;
+    var y = v * canvas.height;
+
+    if (i === 0) {
+      canvasCtx.moveTo(x, y);
+    } else {
+      canvasCtx.lineTo(x, y);
+    }
+
+    x += sliceWidth;
+  }
+
+  canvasCtx.lineTo(canvas.width, canvas.height / 2);
+  canvasCtx.stroke();
+
+  //play song
+  song.start(0);
 }
 
 function stop() {
-  source.stop(0);
+  song.stop(0);
 }

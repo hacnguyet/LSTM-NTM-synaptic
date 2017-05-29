@@ -4,7 +4,7 @@ var Neuron = synaptic.Neuron,
 	Trainer = synaptic.Trainer,
 	Architect = synaptic.Architect;
 
-var LSTM = new Architect.LSTM(8,10,10,10,10,10,10,8);
+var LSTM = new Architect.LSTM(8,20,20,20,20,20,8);
 var iterations = 1000;
 var rate = .1;
 var input = [];
@@ -16,9 +16,9 @@ function train(){
 	train_length = document.getElementById("train-length").value;
 	iterations = document.getElementById("iterations").value;
 	if(train_length == '')
-		train_length = 20; 
+		train_length = 2; 
 	if(iterations == '')
-		iterations = 10000;   
+		iterations = 1000;   
 	var start = Date.now();
 	var correct = 0;
 	for(var i = 0; i < iterations; i++){
@@ -51,7 +51,7 @@ function train(){
 function test(){  
 	test_length = document.getElementById("test-length").value;
 	if(test_length == '')
-		test_length = 20; 
+		test_length = 2; 
 	input = [];
 	output = [];
 	prediction = [];

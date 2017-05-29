@@ -2,19 +2,24 @@
 <html lang="en">
     <head>
         <meta charset="utf-8">
-        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.0/jquery.min.js"></script>
+        <script src="js/jquery-3.2.0.min.js"></script>
         <script src="js/synaptic.js"></script>
         <script src="js/generate-sound-3.js"></script>
     </head>
     <body> 
         <input type='file' onchange='openFile(event)'>
-        <button onclick="play(audioBuffer);">Play</button>
+        <button onclick="play(audioBuffer, 'oscilloscope');">Play</button>
         <button onclick="stop();">Stop</button>
         <button onclick="train();">Train</button>
         <button onclick="test();">Test</button>
-        <button onclick="play(audioBuffer_test);">Play test</button>
-        <canvas id="oscilloscope" width="1000px" height="300">
+        <button onclick="play(audioBuffer_test, 'oscilloscope_test');">Play test</button>
+        <button onclick="play_json();">Play from json</button>
+        <canvas id="oscilloscope" width="1000px" height="200">
           An alternative text describing what your canvas displays. 
         </canvas>
+        <canvas id="oscilloscope_test" width="1000px" height="200">
+          An alternative text describing what your canvas displays. 
+        </canvas>
+        <textarea rows="10" cols="140" id="textarea"></textarea>
     </body>
 </html>
