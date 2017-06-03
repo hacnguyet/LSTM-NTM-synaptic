@@ -4,8 +4,8 @@ var shiftSize = 3;
 var mem_width = 5;
 var mem_size = 10;
 var learningRate = .1;
-var iterations = 5000;
-var log = 5000;
+var iterations = 1000;
+var log = 1000;
 
 var memoryTape = [];
 var memoryTape_tmp = [];
@@ -20,18 +20,14 @@ var memoryGradient = [];
 
 var inputLayer = new synaptic.Layer(vectorLength);
 var readLayer = new synaptic.Layer(mem_width);
-var hiddenLayer = new synaptic.Layer(20);
-//var hiddenLayer2 = new synaptic.Layer(10);
+var hiddenLayer = new synaptic.Layer(100);
 var headLayer = new synaptic.Layer(mem_width * 4 + shiftSize * 2 + 6);
 var outputLayer = new synaptic.Layer(vectorLength);
-//headLayer = setSquash(headLayer,synaptic.Neuron.squash.TANH);
 
 inputLayer.project(hiddenLayer,synaptic.Layer.connectionType.ALL_TO_ALL);
 readLayer.project(hiddenLayer,synaptic.Layer.connectionType.ALL_TO_ALL);
 hiddenLayer.project(outputLayer,synaptic.Layer.connectionType.ALL_TO_ALL);
-//hiddenLayer2.project(outputLayer,synaptic.Layer.connectionType.ALL_TO_ALL);
 hiddenLayer.project(headLayer,synaptic.Layer.connectionType.ALL_TO_ALL);
-headLayer.project(readLayer,synaptic.Layer.connectionType.ALL_TO_ALL);
 
 function train_ntm(){
 
@@ -44,7 +40,7 @@ function train_ntm(){
         useModel();
 
         //init train sequence
-        var sequence = initSequence(1);
+        var sequence = initSequence(2);
         var inputSequenceArray = sequence[0];
         var outputSequenceArray = sequence[1];
 
@@ -52,12 +48,11 @@ function train_ntm(){
         for(var i in inputSequenceArray){
             forwardController(inputSequenceArray[i],false);      
             outputLayer.propagate(learningRate,outputSequenceArray[i]);
-            //hiddenLayer2.propagate(learningRate);
             hiddenLayer.propagate(learningRate);
             readLayer.propagate(learningRate);
             if(i > 0){ 
-               //propagateMemory(outputSequenceArray[i].concat([0]));
-               propagateMemory(readLayer.activate());
+               propagateMemory(outputSequenceArray[i].concat([0]));
+               //propagateMemory(readLayer.activate());
             }    
             timeStep(false);
             if((numOfRuns + 1) % 1 == 0){
@@ -67,7 +62,7 @@ function train_ntm(){
 
         if((numOfRuns + 1) % log == 0){
             console.log('==============',numOfRuns+1,Date.now()-start,'==============');
-            test_ntm(1);
+            test_ntm(2);
         } 
     }
     console.log('Train complete');
@@ -107,9 +102,6 @@ function forwardController(input,flag){
     }    
 
     hiddenLayerActivate = hiddenLayer.activate();
-    //hiddenLayer2Activate = hiddenLayer2.activate();
-    console.log('hiddenLayerActivate',hiddenLayerActivate);
-    //console.log('hiddenLayer2Activate',hiddenLayer2Activate);
     var outputLayerActivate = outputLayer.activate();
     if(flag){
         drawSequence('prediction',[outputLayerActivate]);
@@ -148,7 +140,6 @@ function memoryMechanism(prevHeadLayerActivate,prevMemoryTape,prevWritetapeWeigh
         var beta = Math.exp(writeHeadInputs[mem_width * 3]);
         var gt = writeHeadInputs[mem_width * 3 + 1];
         var shift = softmax(writeHeadInputs.slice(mem_width * 3 + 2,mem_width * 3 + shiftSize + 2));
-        //var shift = sharpen(softmax(writeHeadInputs.slice(mem_width * 3 + 2,mem_width * 3 + shiftSize + 2)),20);
         if(flag){
             drawSequence('writeShift',[shift]);
         }
@@ -177,7 +168,6 @@ function memoryMechanism(prevHeadLayerActivate,prevMemoryTape,prevWritetapeWeigh
         var beta = Math.exp(readHeadInputs[mem_width]);
         var gt = readHeadInputs[mem_width + 1];
         var shift = softmax(readHeadInputs.slice(mem_width + 2,mem_width + shiftSize + 2));
-        //var shift = sharpen(softmax(readHeadInputs.slice(mem_width + 2,mem_width + shiftSize + 2)),20);
         if(flag){
             drawSequence('readShift',[shift]);
         }
@@ -226,20 +216,10 @@ function propagateMemory(readVector_tmp){
     
     hiddenLayer.activate(lastHiddenLayerActivate);
     var lastHeadLayerActivate = headLayer.activate();
-    //console.log('propagate_hiddenLayerActivate',lastHiddenLayerActivate);
-    //console.log('propagate_headLayerActivate',lastHeadLayerActivate);
-    console.log(readVector, readVector_tmp);
 
     for(var i in readVector){
-        if(readVector[i] >= readVector_tmp[i]){
-            for(var j in memoryGradient){
-                lastHeadLayerActivate[j] -= learningRate * memoryGradient[j][i]
-            }
-        }
-        if(readVector[i] < readVector_tmp[i]){
-            for(var j in memoryGradient){
-                lastHeadLayerActivate[j] += learningRate * memoryGradient[j][i]
-            }
+        for(var j in memoryGradient){
+            lastHeadLayerActivate[j] -= learningRate * memoryGradient[j][i] * (readVector[i] - readVector_tmp[i])
         }
     } 
 
@@ -261,109 +241,47 @@ function initSequence(n){
             var inputSequenceArray = [[0,0,1,0],[0,0,1,1],[0,0,0,0],[0,0,0,0]];
             var outputSequenceArray = [[0,0,0,0],[0,0,0,0],[0,0,1,0],[0,0,1,1]];
             break;
-            // var inputSequenceArray = [[0,0,0,1],[1,1,0,0],[1,0,0,0],[1,0,0,0],[0,0,1,0],
-            //                           [0,0,0,0],[0,0,0,0],[0,0,0,0]];
-            // var outputSequenceArray = [[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0],
-            //                           [1,1,0,0],[1,0,0,0],[1,0,0,0]];
-            // break;
         case 2:
-            var inputSequenceArray = [[0,0,0,1],[0,1,0,0],[1,0,0,0],[1,1,0,0],[0,0,1,0],
-                                      [0,0,0,0],[0,0,0,0],[0,0,0,0]];
-            var outputSequenceArray = [[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0],
-                                      [0,1,0,0],[1,0,0,0],[1,1,0,0]];
-            break; 
-        case 3:
-            var inputSequenceArray = [[0,0,0,0,0,0,0,0,0,1],
-                                      [1,0,1,0,1,0,1,0,0,0],[0,0,0,1,0,0,0,1,0,0],[1,1,0,0,0,1,0,1,0,0],[0,0,0,1,1,1,0,1,0,0],
-                                      [0,0,0,0,0,0,0,0,1,0],
-                                      [0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0]];
+            //add vector flag start
+            var vectorStart = [];
+            for(var j = 0; j < vectorLength; j++){
+                vectorStart.push(0);
+            }
+            vectorStart[vectorLength - 2] = 1;
+            inputSequenceArray.push(vectorStart);
+            outputSequenceArray.push(vectorZero);
 
-            var outputSequenceArray = [[0,0,0,0,0,0,0,0,0,0],
-                                       [0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],
-                                       [0,0,0,0,0,0,0,0,0,0],
-                                       [1,0,1,0,1,0,1,0,0,0],[0,0,0,1,0,0,0,1,0,0],[1,1,0,0,0,1,0,1,0,0],[0,0,0,1,1,1,0,1,0,0],];
-            break;
-        case 4:
-            var inputSequenceArray = [[0,1],[0,1],[1,0],[0,0],[0,0],[0,0]];
-            var outputSequenceArray = [[0,0],[0,0],[0,0],[0,1],[0,1],[1,0]];
-            break;
-        case 5:
-            var inputSequenceArray = [[1,0],[1,0],[0,0],[0,0]];
-            var outputSequenceArray = [[0,0],[0,0],[1,0],[1,0]];
-            break; 
-        case 6:
-            var inputSequenceArray = [[1,0],[1,1],[0,0],[0,0]];
-            var outputSequenceArray = [[0,0],[0,0],[1,0],[1,1]];
-            break;   
-        case 7:
-            var inputSequenceArray = [[1,1],[0,1],[0,0],[0,0]];
-            var outputSequenceArray = [[0,0],[0,0],[1,1],[0,1]];
-            break;
-        case 8:
-            var inputSequenceArray = [[1,1],[1,0],[0,0],[0,0]];
-            var outputSequenceArray = [[0,0],[0,0],[1,1],[1,0]];
-            break; 
-        case 9:
-            var inputSequenceArray = [[1,1],[1,1],[0,0],[0,0]];
-            var outputSequenceArray = [[0,0],[0,0],[1,1],[1,1]];
-            break; 
-        default:
+            //add random vector  
             for(var i = 0; i < sequenceLength; i++){
                 var vectorRandom = [];
                 while(vectorRandom.indexOf(1) == -1){
                     vectorRandom = [];
-                    for(var j = 0; j < vectorLength; j++){
+                    for(var j = 0; j < vectorLength - 2; j++){
                         vectorRandom.push(Math.round(Math.random()));
                     }    
-                }   
+                }  
+                vectorRandom.push(0);
+                vectorRandom.push(0);  
                 inputSequenceArray.push(vectorRandom);
                 outputSequenceArray.push(vectorZero);
-            }           
+            }
+
+            //add vector flag end
+            var vectorEnd = [];
+            for(var j = 0; j < vectorLength; j++){
+                vectorEnd.push(0);
+            }
+            vectorEnd[vectorLength - 1] = 1;
+            inputSequenceArray.push(vectorEnd);
+            outputSequenceArray.push(vectorZero);
+
             for(var i = 1; i < sequenceLength + 1; i++){
                 inputSequenceArray.push(vectorZero);
                 outputSequenceArray.push(inputSequenceArray[i]);
-            }          
+            }       
+            break;
     }
-
-    // var inputSequenceArray = [[0,1,0,1],[1,1,0,0],[1,0,1,0],[1,1,1,0],[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]];
-    // var outputSequenceArray = [[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,1,0,1],[1,1,0,0],[1,0,1,0],[1,1,1,0]];
-
-
-    // var vectorStart = [];
-    // for(var j = 0; j < vectorLength; j++){
-    //     vectorStart.push(0);
-    // }
-    // vectorStart[vectorLength - 2] = 1;
-    // inputSequenceArray.push(vectorStart);
-    // outputSequenceArray.push(vectorZero);
-
-    // for(var i = 0; i < sequenceLength; i++){
-    //     var vectorRandom = [];
-    //     while(vectorRandom.indexOf(1) == -1){
-    //         vectorRandom = [];
-    //         for(var j = 0; j < vectorLength - 2; j++){
-    //             vectorRandom.push(Math.round(Math.random()));
-    //         }    
-    //     }  
-    //     vectorRandom.push(0);
-    //     vectorRandom.push(0);  
-    //     inputSequenceArray.push(vectorRandom);
-    //     outputSequenceArray.push(vectorZero);
-    // }
-
-    // var vectorEnd = [];
-    // for(var j = 0; j < vectorLength; j++){
-    //     vectorEnd.push(0);
-    // }
-    // vectorEnd[vectorLength - 1] = 1;
-    // inputSequenceArray.push(vectorEnd);
-    // outputSequenceArray.push(vectorZero);
-
-    // for(var i = 1; i < sequenceLength + 1; i++){
-    //     inputSequenceArray.push(vectorZero);
-    //     outputSequenceArray.push(inputSequenceArray[i]);
-    // }
-
+    
     return [inputSequenceArray,outputSequenceArray];
 }
 
@@ -383,6 +301,20 @@ function initModel(){
 
 }
 
+function initializeTapeWeights(flag){
+
+    var weight_init = [];   
+    for (var i = 0; i < mem_size; i++){
+        if(flag){       
+            weight_init.push(Math.random());
+        }else{
+            weight_init.push(0.00001);
+        }    
+    }
+    console.log(softmax(weight_init));
+    return softmax(weight_init);
+}
+
 function useModel(){
 
     memoryTape = [];
@@ -398,20 +330,6 @@ function useModel(){
     readtapeWeight = readtapeWeight_tmp.slice();
     readVector = build_read(memoryTape_tmp,readtapeWeight_tmp);
     
-}
-
-function initializeTapeWeights(flag){
-
-    var weight_init = [];   
-    for (var i = 0; i < mem_size; i++){
-        if(flag){       
-            weight_init.push(Math.random());
-        }else{
-            weight_init.push(0.00001);
-        }    
-    }
-    console.log(softmax(weight_init));
-    return softmax(weight_init);
 }
 
 function build_read(tape_curr,weight_curr,flag){

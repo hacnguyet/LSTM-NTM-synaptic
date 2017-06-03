@@ -1,2 +1,3 @@
-# LSTM-NTM-synaptic
-A couple of tasks for learning LSTM and NTM with the support of Synaptic library by Cazala
+- Chạy file copytask.html để thực hiện bài test copytask bằng LSTM và NTM
+- Chạy file generate-sound.html để thực hiện sinh âm thanh bằng LSTM
+- Chạy file generate-text.html để thực hiện sinh văn bản bằng LSTM

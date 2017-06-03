@@ -4,46 +4,46 @@ var Neuron = synaptic.Neuron,
 	Trainer = synaptic.Trainer,
 	Architect = synaptic.Architect;
 
-var LSTM = new Architect.LSTM(7,20,20,20,20,20,7);
-var iterations = 10000;
+var LSTM = new Architect.LSTM(7,100,100,100,7);
+var iterations = 1;
 var rate = .1;
-var success = 0.95;
 var input = [],
 	output = [];
 var trial = 0;
-var correct, criterion;
+var start;
 
 function read_and_train(){  
 	var text = document.getElementById("textarea").value;
-	var start = Date.now();
-	correct = 0;
-	criterion = 0;
-	while((Date.now() - start) < 100000){
+	var test_length = text.length;
+	console.log(test_length);
+	start = Date.now();
+	var i = 0;
+	while(i < test_length){
+		input = char_to_binary(text.charAt(i));
+		output = char_to_binary(text.charAt(i + 1));
+		var prediction = LSTM.activate(input);
+		if(equal(prediction, output)){
+		}else{
+			LSTM.propagate(rate, output);
+		}	
+		console.log(i, Date.now() - start);
+		if(i % 100 == 0){
+			test();
+		}	
+		i++;
 		trial++;
-		for(var i = 0; i < (text.length - 1); i++){
-			input = char_to_binary(text.charAt(i));
-			output = char_to_binary(text.charAt(i + 1));
-			var prediction = LSTM.activate(input);
-			if(equal(prediction, output)){
-				correct++;
-			}else{
-				LSTM.propagate(rate, output);
-			}		
-		}
-		criterion = correct / (text.length - 1);
-		console.log(trial, criterion * 100, Date.now() - start);
-		correct = 0;
 	}
-	test();	
+	console.log('done', trial, Date.now() - start);
 }	
 
 function test(){
 	var text = document.getElementById("text").value;
-	for(var i = 0; i < (text.length - 1); i++){
+	var test_length = text.length;
+	for(var i = 0; i < (test_length - 1); i++){
 		input = char_to_binary(text.charAt(i));
 		output = fix_output(LSTM.activate(input));
 	}
-	for(var i = 0; i <= 15; i++){
+	for(var i = 0; i <= 30; i++){
 		output = fix_output(LSTM.activate(output));
 		text += binary_to_char(output);
 	}
