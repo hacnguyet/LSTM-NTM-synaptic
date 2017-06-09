@@ -4,28 +4,39 @@ var Neuron = synaptic.Neuron,
 	Trainer = synaptic.Trainer,
 	Architect = synaptic.Architect;
 
-var LSTM = new Architect.LSTM(7,100,100,100,7);
+var dictionary = "qwertyuiopasdfghjklzxcvbnm,.()'- \n";
+var dic_length = dictionary.length;
+var keys = {};
+for (var i in dictionary){
+	keys[dictionary[i]] = new Array(dic_length).fill(0);
+	keys[dictionary[i]][i] = 1;
+}
+
+var LSTM = new Architect.LSTM(dic_length,100,dic_length);
 var iterations = 1;
 var rate = .1;
 var input = [],
 	output = [];
 var trial = 0;
-var start;
+var start; 
 
 function read_and_train(){  
 	var text = document.getElementById("textarea").value;
-	var test_length = text.length;
-	console.log(test_length);
+	text = text.toLowerCase()
+	.replace(/\[|\{/g, "(")
+	.replace(/\]|\}/g, ")")
+	.replace(/_/g, "-")
+	.replace(/"/g, "'")
+	.replace(/\:|\!|\?/g, ".")
+	.replace(/;/g, ",");
+
 	start = Date.now();
 	var i = 0;
-	while(i < test_length){
-		input = char_to_binary(text.charAt(i));
-		output = char_to_binary(text.charAt(i + 1));
+	while(i < text.length){
+		input = keys[text.charAt(i)];
+		output = keys[text.charAt(i + 1)];
 		var prediction = LSTM.activate(input);
-		if(equal(prediction, output)){
-		}else{
-			LSTM.propagate(rate, output);
-		}	
+		LSTM.propagate(rate, output);
 		console.log(i, Date.now() - start);
 		if(i % 100 == 0){
 			test();
@@ -38,9 +49,9 @@ function read_and_train(){
 
 function test(){
 	var text = document.getElementById("text").value;
-	var test_length = text.length;
-	for(var i = 0; i < (test_length - 1); i++){
-		input = char_to_binary(text.charAt(i));
+
+	for(var i = 0; i < (text.length - 1); i++){
+		input = keys[text.charAt(i)];
 		output = fix_output(LSTM.activate(input));
 	}
 	for(var i = 0; i <= 30; i++){
@@ -50,26 +61,10 @@ function test(){
 	console.log(text);
 }
 
-function char_to_binary(c){
-	var arr = new Array(7);
-	var c_ascii = (c.charCodeAt(0)).toString(2);
-	c_ascii = new Array(8 - c_ascii.length).join('0') + c_ascii;	
-	arr = c_ascii.split("");
-	for(var i = 0; i < arr.length; i++)
-		arr[i] = parseInt(arr[i],10);
-	return arr;
-}
-
 function binary_to_char(arr){
-	return String.fromCharCode(parseInt(arr.join(""),2));
+	var index = arr.indexOf(1);
+	return dictionary.charAt(index);
 }
-
-function equal(prediction, output) {
-  	for (var i in prediction)
-   		if (Math.round(prediction[i]) != output[i])
-      		return false;
-  	return true;
-};
 
 function fix_output(arr){
 	for(var i in arr)
