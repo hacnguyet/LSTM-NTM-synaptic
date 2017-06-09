@@ -12,11 +12,10 @@ for (var i in dictionary){
 	keys[dictionary[i]][i] = 1;
 }
 
-var LSTM = new Architect.LSTM(dic_length,100,dic_length);
+var LSTM = new Architect.LSTM(dic_length,50,dic_length);
 var iterations = 1;
 var rate = .1;
-var input = [],
-	output = [];
+var input, output, prediction;
 var trial = 0;
 var start; 
 
@@ -30,18 +29,19 @@ function read_and_train(){
 	.replace(/\:|\!|\?/g, ".")
 	.replace(/;/g, ",");
 
+	console.log(text.length);
+
 	start = Date.now();
 	var i = 0;
-	while(i < text.length){
+	for(var i = 0; i < (text.length - 1); i++){
 		input = keys[text.charAt(i)];
 		output = keys[text.charAt(i + 1)];
-		var prediction = LSTM.activate(input);
+		prediction = LSTM.activate(input);
 		LSTM.propagate(rate, output);
 		console.log(i, Date.now() - start);
-		if(i % 100 == 0){
+		if((i + 1) % 100 == 0){
 			test();
 		}	
-		i++;
 		trial++;
 	}
 	console.log('done', trial, Date.now() - start);
@@ -55,7 +55,9 @@ function test(){
 		output = fix_output(LSTM.activate(input));
 	}
 	for(var i = 0; i <= 30; i++){
-		output = fix_output(LSTM.activate(output));
+		output = LSTM.activate(output);
+		console.log(output);
+		output = fix_output(output);
 		text += binary_to_char(output);
 	}
 	console.log(text);
